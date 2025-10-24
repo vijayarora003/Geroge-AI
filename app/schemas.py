@@ -49,3 +49,11 @@ class AppleLoginRequest(BaseModel):
     login_type: str
     email: str
     username: str
+
+# Request model
+class QuestionRequest(BaseModel):
+    question: str
+
+# Response model
+class AnswerResponse(BaseModel):
+    answer: str

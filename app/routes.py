@@ -2,8 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from fastapi import Body
 from datetime import datetime, timedelta
-
+import os
 from . import schemas, models, database, auth
+import requests
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 router = APIRouter()
 
@@ -243,3 +248,36 @@ def apple_signin(user: schemas.AppleLoginRequest = Body, db: Session = Depends(d
         "token_type": "bearer",
         "login_type": new_user.login_type,
     }
+
+
+@router.post("/answer", response_model=schemas.AnswerResponse)
+async def ask_question(request: schemas.QuestionRequest):
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {OPENAI_API_KEY}"
+    }
+
+    payload = {
+        "model": "gpt-4o-mini",  # you can change to "gpt-4o" or "gpt-5" if available
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": request.question}
+        ],
+        "max_tokens": 500
+    }
+
+    try:
+        response = requests.post(OPENAI_API_URL, headers=headers, json=payload)
+        response.raise_for_status()  # raise exception if not 2xx
+
+        data = response.json()
+        answer = data["choices"][0]["message"]["content"].strip()
+
+        return {"answer": answer}
+
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Request error: {e}")
+    except KeyError:
+        raise HTTPException(status_code=500, detail="Invalid response from OpenAI API.")
